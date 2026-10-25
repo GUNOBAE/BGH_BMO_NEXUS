@@ -65,6 +65,9 @@ flowchart TD
 |---|---|
 | 요구사항·운영 원칙 | ✅ 문서화 |
 | Pi 부팅 디스크·OS·실행 서비스 실측 | ✅ 1차 조사 완료; SSD와 BMO 런처 추가 확인 필요 |
+| SSD 0B/데이터 상태 정밀 진단 | ⚠️ 미해결; [Issue #3](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/3) 진행 예정 |
+| BMO 안전 실행·종료 인터페이스 | ⚠️ 미확인; [Issue #4](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/4) 진행 예정 |
+| Pi 후속 점검 스크립트/모의 테스트 | ✅ PR #2 병합·31개 모의 테스트 Pi에서 통과 |
 | BMO 원본 백업 및 복원 테스트 | ⬜ 미검증 |
 | 서버 프로그램 배포 | ⬜ 미실시 |
 | 모드 전환 구현·현장 시험 | ⬜ 미실시 |
@@ -81,6 +84,8 @@ flowchart TD
 - [기존 BMO와 안전하게 연결하기](docs/06_BMO_INTEGRATION_KR.md)
 - [현재 사실 및 확인해야 할 항목](docs/07_STATUS_AND_ASSUMPTIONS_KR.md)
 - [2026-10-25 Raspberry Pi 현장 진단 요약](docs/09_PI_BASELINE_KR.md)
+- [Phase 2A: NVMe 0B 원인 진단 (Issue #3)](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/3)
+- [Phase 2B: BMO 실행·종료 계약 (Issue #4)](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/4)
 - [SSD·BMO 읽기 전용 후속 점검 및 모의 테스트](docs/11_FOLLOWUP_INSPECTION_KR.md) — 새 도구의 실제 Pi 검증은 미실시
 - [Codex 협업 규칙과 구현 작업 방식](docs/10_CODEX_WORKFLOW_KR.md)
 - [Codex 영구 작업 규칙](AGENTS.md)
