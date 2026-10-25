@@ -26,7 +26,7 @@
 | 구성 | 정보 |
 |---|---|
 | Computer | Raspberry Pi 5 · 8 GB RAM |
-| NVMe SSD | 1 TB (present, but device currently reports **0B**; unmounted; do not format) |
+| NVMe SSD | 1 TB; 2026-10-25 baseline은 **0B/미마운트**, 이후 복귀 보고가 있으나 원인·데이터·장기 안정성 미확인 ([Issue #3](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/3)); 포맷 금지 |
 | microSD | 512 GB (**confirmed OS/root filesystem**: `/dev/mmcblk0p2`) |
 | Robot hardware | Existing 7-inch BMO display, audio, camera, RP2040 control chain |
 
@@ -65,8 +65,8 @@ flowchart TD
 |---|---|
 | 요구사항·운영 원칙 | ✅ 문서화 |
 | Pi 부팅 디스크·OS·실행 서비스 실측 | ✅ 1차 조사 완료; SSD와 BMO 런처 추가 확인 필요 |
-| SSD 0B/데이터 상태 정밀 진단 | ⚠️ 미해결; [읽기 전용 진단 절차](docs/12_NVME_TRIAGE_KR.md) 작성, 추가 현장 관측 대기 ([Issue #3](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/3)) |
-| BMO 안전 실행·종료 인터페이스 | ⚠️ 미확인; [Issue #4](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/4) 진행 예정 |
+| SSD 0B/데이터 상태 정밀 진단 | ⚠️ 후속 복귀 보고 있음; 원인·데이터/재발·장기 안정성은 미해결. [진단 절차](docs/12_NVME_TRIAGE_KR.md)와 [후속 인계](docs/13_BMO_LIFECYCLE_CONTRACT_KR.md) 참조 ([Issue #3](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/3)) |
+| BMO 안전 실행·종료 인터페이스 | 📝 사실 인계·[Phase 2B 계약 설계](docs/13_BMO_LIFECYCLE_CONTRACT_KR.md) 작성; interpreter/ready·정리 완료 ACK/실물 종료는 미확인. 제어기 미구현·Pi 미적용 |
 | Pi 후속 점검 스크립트/모의 테스트 | ✅ PR #2 병합·31개 모의 테스트 Pi에서 통과 |
 | BMO 원본 백업 및 복원 테스트 | ⬜ 미검증 |
 | 서버 프로그램 배포 | ⬜ 미실시 |
@@ -87,6 +87,7 @@ flowchart TD
 - [Phase 2A: NVMe 0B 원인 진단 (Issue #3)](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/3)
 - [NVMe 0B 원인 가설·읽기 전용 진단 절차](docs/12_NVME_TRIAGE_KR.md) — 이번 추가 절차는 실제 Pi에서 미실행
 - [Phase 2B: BMO 실행·종료 계약 (Issue #4)](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/4)
+- [BMO 수명주기 계약·시작/정리 완료 조건·모드 전환 및 Mock 전략](docs/13_BMO_LIFECYCLE_CONTRACT_KR.md) — 문서 설계이며 실제 제어/전환은 차단 상태
 - [SSD·BMO 읽기 전용 후속 점검 및 모의 테스트](docs/11_FOLLOWUP_INSPECTION_KR.md) — 기존 도구의 Pi 실행·31개 모의 테스트 통과는 소유자 보고로 확인
 - [Codex 협업 규칙과 구현 작업 방식](docs/10_CODEX_WORKFLOW_KR.md)
 - [Codex 영구 작업 규칙](AGENTS.md)

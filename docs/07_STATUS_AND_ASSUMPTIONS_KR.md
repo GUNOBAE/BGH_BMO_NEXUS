@@ -31,3 +31,22 @@
 - [Issue #1](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/1) — read-only NVMe/프로세스 후속 점검 도구와 문서/테스트.
 - 저장소 루트의 `AGENTS.md`와 [10_CODEX_WORKFLOW_KR.md](10_CODEX_WORKFLOW_KR.md)에서 협업/금지 규칙 확인.
 - 현장 명령은 사용자 승인으로 실행. 민감 데이터가 들어간 원문을 GitHub에 올리지 않는다.
+
+## Phase 2B 인계 반영 (2026-10-26, 새 현장 조사 아님)
+
+[Issue #4 상세 인계](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/4#issuecomment-6400459832)와
+[NEXUS 리뷰](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/4#issuecomment-6400500959)를 바탕으로
+[BMO lifecycle 계약](13_BMO_LIFECYCLE_CONTRACT_KR.md)을 작성했다. 위의 2026-10-25 기록을
+현재 상태로 덮어쓰지 않고, 관측/코드/미검증/새 설계를 구분한다.
+
+- 최신 BMO `0287bb23c1fafc357c9a18419f62b2ebdf0de767`의 UID1000 수동 Desktop/PTT 옵션 실행과
+  Chromium 자식이 관측됐다. 이후 PID 소멸은 정상 종료 시험 합격이 아니다.
+- 조사 범위에서 BMO 앱 autostart를 발견하지 못했다. 최신 checkout의 기본 venv는 없었고
+  실제 interpreter 선택은 미확인이다. runtime 권한 변화도 자동 수리의 근거가 아니다.
+- Desktop 종료 요청은 구현돼 있으나 stable ready/clean-exit ACK·전체 종료 상한·실물 장치 반환은
+  미확인이다. 따라서 NEXUS 제어기/adapter는 미구현·Pi 미적용이며 실제 전환을 허용하지 않는다.
+- Ollama는 확인한 BMO 코드 의존성이 없지만 별도 서비스가 실행 중이었고 다른 사용처는 미확인이다.
+  SSH/Tailscale/VNC/NetworkManager/팬과 함께 그대로 유지한다.
+- Issue #4 후속 인계에는 SSD 용량·ext4·rw mount·controller live 복귀라는 소유자 보고가 있다.
+  이번 문서에서 재측정하지 않았고 원인·데이터 무결성·재발/장기 안정성·백업 승인·서버 설치는 별개다.
+- 다음 단계는 이 문서 PR 검토와 별도 Mock 상태기계 작업의 합의다. 실제 BMO 종료나 서버 배포가 아니다.

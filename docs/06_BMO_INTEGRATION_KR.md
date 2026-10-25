@@ -1,5 +1,10 @@
 # 기존 BMO와의 안전한 통합
 
+2026-10-26의 BMO 담당 사실 인계와 NEXUS 리뷰를 반영한 현재 계약은
+[13_BMO_LIFECYCLE_CONTRACT_KR.md](13_BMO_LIFECYCLE_CONTRACT_KR.md)에 있다.
+실제 수동 실행과 코드상 종료 경로는 확인됐으나, interpreter 확정·NEXUS용 ready/정리 완료
+응답·실물 자원 반환·재진입은 미확인이다. 이 문서의 조사/회귀 목록은 완료 표시가 아니다.
+
 ## 무엇을 유지하나?
 
 - 기존 원본 프로젝트: https://github.com/GUNOBAE/BGH_BMO
@@ -16,6 +21,8 @@
 - 카메라/마이크/화면/USB RP2040을 서버 컨테이너에 전달하지 않는다.
 - 기존 자동실행 유닛을 모르는 상태에서 `disable`, `mask`, `killall`, `systemctl isolate` 등의 광범위 조작을 하지 않는다.
 - BMO가 사용 중인 포트/파일/오디오 장치를 미확인 상태로 점유하지 않는다.
+- Desktop의 stop/cancel을 앱 종료로, PID 소멸을 전체 자원 정리로 해석하지 않는다.
+- RP2040은 Pi 자식 프로세스가 아니다. 앱 종료를 MCU/서보 정지로 보거나 USB reset을 자동 실행하지 않는다.
 
 ## 모드 전환 구현 전에 반드시 알아낼 사실
 

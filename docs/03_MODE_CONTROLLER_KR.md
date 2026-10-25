@@ -2,6 +2,11 @@
 
 > 현재는 **구현 명세**다. `nexus mode ...` 명령이나 systemd 유닛이 Pi에 설치되어 있다는 뜻이 아니다.
 
+Issue #4의 인계·검토를 반영한 상세 수용 조건은
+[Phase 2B 수명주기 계약](13_BMO_LIFECYCLE_CONTRACT_KR.md)을 따른다.
+시작 interpreter와 ready/정리 완료 ACK, 실물 자원 해제 및 단일 소유권 정책이 미확정이므로
+실제 호스트 제어는 여전히 차단 상태다. 최신 BMO의 수동 실행 관측과 NEXUS 제어기 적용은 다르다.
+
 ## 한 OS의 선택적 실행
 
 ```text
@@ -24,7 +29,8 @@
 
 ## 필수 불변식 (어겨지면 전환 실패)
 
-1. 두 워크로드가 동시에 살아 있지 않을 것. 종료됐는지 프로세스/서비스/PID/컨테이너를 **실제로 검사**한다.
+1. 두 워크로드가 동시에 살아 있지 않을 것. 소유 identity와 자원별 정리 완료를 **실제로 확인**한다.
+   PID 소멸·exit0·lock 해제·HTTP202는 단독 완료 증거가 아니다. 전환 lock만으로 외부 수동 BMO 시작을 막을 수도 없다.
 2. ROBOT/MAINTENANCE 모드에선 공개 Cloudflare Tunnel이 실행 중이지 않을 것.
 3. 공개 터널은 SERVER 기능과 마운트/권한/건강 검사를 통과한 뒤 **마지막에** 시작할 것.
 4. 공개 사이트 컨테이너는 개인 BMO 데이터, SSH 키, 토큰, Docker socket에 접근하지 않을 것.
@@ -47,7 +53,9 @@ function switch_mode(target):
   if target == SERVER and explicitly approved public demo exists:
       start public tunnel LAST
   record current mode, version, check results and timestamp
-  on error: keep public access OFF; stop what can be stopped safely; report inconsistent state
+  on error: request public OFF; record CLOSED or UNKNOWN from evidence
+            quiesce only confirmed owned workloads within approved scope
+            record ERROR; never claim both stopped or start the other mode
   release lock
 ```
 
@@ -58,6 +66,11 @@ function switch_mode(target):
 - **SERVER → ROBOT:** 터널 중단 → 모든 서버 컨테이너/백업 작업 종료 및 확인 → BMO에 필요한 디스플레이·오디오·USB 점유 점검 → 기존 BMO 정상 실행 → 얼굴/음성/버튼 검증.
 - **ROBOT → SERVER:** BMO 종료 → 프로세스/하드웨어 리소스 해제 확인 → SSD 존재 및 데이터 경로 확인 → 백업·클라우드·웹앱 시작 → 사설망 시험 → 승인된 공개 라우팅만 시작.
 - **ANY → MAINTENANCE:** 공개 터널 OFF → 로봇·서버 앱 정지 → 로그 기록. 관리용 SSH/Tailscale은 유지.
+
+여기서 OFF는 종료 요청뿐 아니라 CLOSED 확인을 요구한다. MAINTENANCE는 양쪽 workload의
+정리가 확인된 경우에만 기록한다. timeout/미확인은 ERROR이며 기존 workload가 남아 있을 수 있다.
+초기 상태와 controller 재시작은 UNKNOWN부터 조정하고 지난 READY/공개 허가를 자동 복원하지 않는다.
+보호 서비스와 다른 소비자가 미확인인 Ollama는 모드 workload 종료 대상에 넣지 않는다.
 
 ## 실제 구현 전 필요한 정보
 
