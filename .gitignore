@@ -1,0 +1,38 @@
+# Secrets and authentication
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.kdbx
+id_rsa*
+id_ed25519*
+*.token
+secrets/
+private/
+
+# Runtime data and backup payloads
+appdata/
+data/
+vault/
+mirrors/
+backups/
+archives/
+*.sqlite
+*.sqlite3
+*.db
+*.tar
+*.tar.gz
+*.zip
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+__pycache__/
+*.pyc
+
+# Local audit output (not public)
+inspect-*.txt
+logs/
