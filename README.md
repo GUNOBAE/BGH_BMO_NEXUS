@@ -26,8 +26,8 @@
 | 구성 | 정보 |
 |---|---|
 | Computer | Raspberry Pi 5 · 8 GB RAM |
-| NVMe SSD | 1 TB (installed; mount/boot role unverified) |
-| microSD | 512 GB (boot role unverified) |
+| NVMe SSD | 1 TB (present, but device currently reports **0B**; unmounted; do not format) |
+| microSD | 512 GB (**confirmed OS/root filesystem**: `/dev/mmcblk0p2`) |
 | Robot hardware | Existing 7-inch BMO display, audio, camera, RP2040 control chain |
 
 저장장치의 실제 부팅/마운트 경로를 확인하기 **전에는 포맷이나 OS 이전을 진행하지 않는다.**
@@ -64,7 +64,7 @@ flowchart TD
 | 항목 | 상태 |
 |---|---|
 | 요구사항·운영 원칙 | ✅ 문서화 |
-| Pi 부팅 디스크·OS·실행 서비스 실측 | ⬜ 아직 확인 전 |
+| Pi 부팅 디스크·OS·실행 서비스 실측 | ✅ 1차 조사 완료; SSD와 BMO 런처 추가 확인 필요 |
 | BMO 원본 백업 및 복원 테스트 | ⬜ 미검증 |
 | 서버 프로그램 배포 | ⬜ 미실시 |
 | 모드 전환 구현·현장 시험 | ⬜ 미실시 |
@@ -80,6 +80,10 @@ flowchart TD
 - [저장장치·GitHub 백업·복원](docs/05_STORAGE_BACKUP_KR.md)
 - [기존 BMO와 안전하게 연결하기](docs/06_BMO_INTEGRATION_KR.md)
 - [현재 사실 및 확인해야 할 항목](docs/07_STATUS_AND_ASSUMPTIONS_KR.md)
+- [2026-10-25 Raspberry Pi 현장 진단 요약](docs/09_PI_BASELINE_KR.md)
+- [Codex 협업 규칙과 구현 작업 방식](docs/10_CODEX_WORKFLOW_KR.md)
+- [Codex 영구 작업 규칙](AGENTS.md)
+- [Codex 첫 작업 — SSD/BMO 안전 점검 (Issue #1)](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/1)
 - [다른 채팅의 웹 개발 인계서](docs/08_WEB_CHAT_HANDOFF_KR.md)
 - [공식 참고 문서](docs/REFERENCES.md)
 
