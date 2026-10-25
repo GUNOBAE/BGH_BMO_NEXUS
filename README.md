@@ -81,6 +81,7 @@ flowchart TD
 - [기존 BMO와 안전하게 연결하기](docs/06_BMO_INTEGRATION_KR.md)
 - [현재 사실 및 확인해야 할 항목](docs/07_STATUS_AND_ASSUMPTIONS_KR.md)
 - [2026-10-25 Raspberry Pi 현장 진단 요약](docs/09_PI_BASELINE_KR.md)
+- [SSD·BMO 읽기 전용 후속 점검 및 모의 테스트](docs/11_FOLLOWUP_INSPECTION_KR.md) — 새 도구의 실제 Pi 검증은 미실시
 - [Codex 협업 규칙과 구현 작업 방식](docs/10_CODEX_WORKFLOW_KR.md)
 - [Codex 영구 작업 규칙](AGENTS.md)
 - [Codex 첫 작업 — SSD/BMO 안전 점검 (Issue #1)](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/1)
