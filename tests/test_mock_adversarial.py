@@ -316,6 +316,10 @@ class AdversarialEvidenceTests(unittest.TestCase):
 
     def test_ssd_identity_revision_change_in_ready_revokes_public(self):
         world, controller = ready_fixture(Mode.SERVER)
+        world.tunnel = replace(
+            world.tunnel, configured=True, empty_inventory_verified=False,
+            approved_route_scope="mock-approved-demo",
+        )
         self.assertTrue(controller.operator_public_approval())
         starts_before = start_count(world, Mode.SERVER)
         world.ssd = replace(world.ssd, revision=2)
@@ -337,6 +341,10 @@ class AdversarialEvidenceTests(unittest.TestCase):
 
     def test_external_robot_during_server_ready_revokes_permission_only(self):
         world, controller = ready_fixture(Mode.SERVER)
+        world.tunnel = replace(
+            world.tunnel, configured=True, empty_inventory_verified=False,
+            approved_route_scope="mock-approved-demo",
+        )
         self.assertTrue(controller.operator_public_approval())
         world.external_robot = True
         self.assertFalse(controller.tick())

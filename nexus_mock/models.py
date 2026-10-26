@@ -106,6 +106,8 @@ class TunnelEvidence:
     scope_verified: bool = False
     configured: bool = False
     empty_inventory_verified: bool = False
+    # 테스트가 승인한 route 묶음의 식별자. 빈 목록은 공개 승인 범위가 아니다.
+    approved_route_scope: str | None = None
 
 
 @dataclass(frozen=True)
@@ -150,3 +152,4 @@ class Command:
     kind: str
     token: Token
     identity: Identity | None = None
+    route_scope: str | None = None

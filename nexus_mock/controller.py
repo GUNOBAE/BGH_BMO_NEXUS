@@ -20,6 +20,7 @@ class ModeController:
         self.token = Token(self.epoch, self.transition, 0, "mock-idle")
         self.active: Identity | None = None
         self.public_permission = False
+        self._public_route_scope: str | None = None
         self.error: str | None = None
         self.deadline: int | None = None
         self.history: list[tuple[int, State, str]] = []
@@ -29,7 +30,8 @@ class ModeController:
         self._ssd_revision: int | None = None
         self._planned_ssd_revision: int | None = None
         self._step_started_at = world.clock.now
-        self._requests: dict[str, tuple[Mode, int]] = {}
+        # 실패/복구 뒤에도 기록을 남겨 과거 ID가 새 요청으로 수락되지 않게 한다.
+        self._requests: dict[str, tuple[Mode, int, int]] = {}
 
     def _fresh(self, at: int) -> bool:
         return 0 <= self.world.clock.now - at <= self.policy.evidence_ttl
@@ -49,6 +51,11 @@ class ModeController:
             s.healthy, s.capacity_ok, s.permissions_ok, s.backup_approved,
         ))
 
+    def _public_route_approved(self) -> bool:
+        tunnel = self.world.tunnel
+        scope = tunnel.approved_route_scope
+        return tunnel.configured and isinstance(scope, str) and bool(scope.strip())
+
     def _fail(self, reason: str) -> bool:
         # 닫기 요청은 CLOSED 관측을 위조하지 않는다. 남아 있는 root도 죽이지 않는다.
         if self.state != State.ERROR:
@@ -58,6 +65,7 @@ class ModeController:
             self.world.baseline_resources_verified = False
             self.world.inventory_verified = False
         self.public_permission = False
+        self._public_route_scope = None
         self.state = State.ERROR
         self.error = reason
         self.deadline = None
@@ -112,6 +120,13 @@ class ModeController:
         )
         if tunnel.status == Tunnel.OPEN and not open_allowed:
             return self._fail("public_open_without_permission")
+        if self.public_permission and (
+                not self._public_route_approved()
+                or tunnel.approved_route_scope != self._public_route_scope):
+            return self._fail("public_route_scope_lost_or_changed")
+        if self.active and self.active.mode == Mode.ROBOT:
+            if not self.world.robot_profile_verified:
+                return self._fail("robot_profile_unknown")
         if self.active and self.active.mode == Mode.SERVER:
             if not self._ssd_ok() or self.world.ssd.revision != self._ssd_revision:
                 return self._fail("ssd_lost_or_changed")
@@ -142,6 +157,7 @@ class ModeController:
         self._ssd_revision = None
         self._planned_ssd_revision = None
         self.public_permission = False
+        self._public_route_scope = None
         self.state = State.UNKNOWN
         self.desired = Mode.MAINTENANCE
         self.error = None
@@ -159,16 +175,21 @@ class ModeController:
         return True
 
     def request(self, target: Mode, command_id: str) -> int | None:
-        """동일 사용자 명령은 멱등적이다. ACK 재전송은 별도로 ERROR 처리한다."""
+        """현재 세대/전환의 유효한 요청만 멱등적이다. 과거 ID 재사용은 거부한다."""
         if not isinstance(target, Mode) or not isinstance(command_id, str) or not command_id:
             self._fail("invalid_request")
             return None
         previous = self._requests.get(command_id)
         if previous:
-            if previous[0] == target:
-                return previous[1]
-            self._fail("command_id_reused")
-            return None
+            previous_target, epoch, transition = previous
+            if previous_target != target:
+                self._fail("command_id_reused")
+                return None
+            if self.state == State.ERROR or epoch != self.epoch or transition != self.transition:
+                self._fail("stale_command_id")
+                return None
+            # 캐시 hit도 deadline·세대·현재 증거를 검사해야 수락처럼 보이지 않는다.
+            return transition if self.tick() else None
         if self.state not in (State.MAINTENANCE, State.ROBOT_READY, State.SERVER_READY) or self.step != Step.IDLE:
             self._fail("request_while_busy_or_unknown")
             return None
@@ -180,12 +201,13 @@ class ModeController:
                 return None
             self._planned_ssd_revision = self.world.ssd.revision
         self.transition = self.world.new_transition()
-        self._requests[command_id] = (target, self.transition)
+        self._requests[command_id] = (target, self.epoch, self.transition)
         self.desired = target
         if (target == Mode.MAINTENANCE and self.active is None
                 or self.active and self.active.mode == target):
             return self.transition
         self.public_permission = False
+        self._public_route_scope = None
         self._cleanup_ok = False
         self._root_ok = False
         run = self.active.run if self.active else self._new_run()
@@ -308,7 +330,12 @@ class ModeController:
             return False
         if self.state != State.SERVER_READY or self.step != Step.IDLE or not self._closed():
             return self._fail("public_approval_outside_private_server_ready")
+        if not self._public_route_approved():
+            # 검증된 빈 경로는 비공개 SERVER_READY를 유지할 근거일 뿐이다.
+            return False
         self.public_permission = True
+        self._public_route_scope = self.world.tunnel.approved_route_scope
         self._set_step(Step.PUBLIC_OPEN, self.active.run)
-        self.world.record("open_public", self.token, self.active)
+        self.world.record("open_public", self.token, self.active,
+                          route_scope=self._public_route_scope)
         return True

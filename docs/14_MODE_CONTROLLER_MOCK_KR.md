@@ -75,6 +75,12 @@
 시간 보장이 아니다. `FakeWorld`의 소유권/profile/기본 자원 검증 flag도 테스트가 제공하는
 가정이며, 실제 인증·GUI·interpreter·장치 검사 구현으로 해석하지 않는다.
 
+`robot_profile_verified`는 시작 직전만 확인하는 값이 아니라 **해당 ROBOT run을 관리하는 동안
+계속 유효해야 하는 계약 조건**이다. 시작 전 미확인은 `robot_preflight_unknown`으로 차단한다.
+시작 이후 READY/STOPPING을 포함해 active ROBOT의 증거가 철회되면 다음 `tick()`/이벤트에서
+`robot_profile_unknown`으로 ERROR가 된다. 공개 허가는 철회하며 상대 모드를 추가 시작하지 않는다.
+health와 inventory가 남아 있어도 철회된 profile을 대신하지 못한다.
+
 정상 전환은 다음 순서로만 진행한다.
 
 1. 목표·실행 승인·단일 전환 소유권을 확인하고 새 전환 ID를 발급한다.
@@ -107,6 +113,20 @@ Mock에서 주입한 승인된 소유권 정책은 **시험 가정**이며 현�
 목록**을 명시한다. 그 범위가 불명확하거나 조회가 실패하면 UNKNOWN이며 전환은 차단된다.
 이 증거는 승인된 NEXUS 공개 경로만 다룬다. 시스템 전체의 인터넷 무노출을 보증하거나
 SSH/VNC/Tailscale·방화벽·공유기 설정을 수정할 권한이 아니다.
+
+검증된 빈 route 목록은 **비공개 상태 유지**의 근거일 뿐 공개 승인 근거가 아니다.
+`operator_public_approval()`에는 private `SERVER_READY`, 유효한 CLOSED 증거와 함께
+`TunnelEvidence.configured=True` 및 공백뿐이 아닌 문자열 `approved_route_scope`가 필요하다.
+이 scope는 테스트가 승인한 공개 route 묶음의 식별자이며 실제 주소나 인증 구현이 아니다.
+경로가 미설정이거나 승인 scope가 없으면 `False`를 반환하고, `public_permission=False`,
+`open_public` 기록 0건, 비공개 `SERVER_READY`를 유지한다. 다른 증거까지 무효인 경우에는
+기존 ERROR 규칙이 먼저 적용된다.
+
+승인된 가짜 `open_public` 명령에는 `Command.route_scope`로 해당 범위를 기록한다.
+승인 후 관측의 `approved_route_scope`가 철회되거나 다른 값으로 바뀌면 다음 검사에서
+`public_route_scope_lost_or_changed`로 ERROR가 되어 허가를 철회한다. 변경된 경로로 기존
+허가를 옮기거나 새 공개 요청을 자동 발행하지 않는다. 설정·관측 자체가 불명확하면 기존
+`tunnel_unknown` 등의 규칙도 적용된다.
 
 ### SSD와 ready
 
@@ -145,15 +165,33 @@ Issue #7은 PR #6의 문서 단계보다 엄격하게 **오래되거나 재전�
 run·전환·단계·세대·identity와 유효 시점이 현재 기대값과 일치해야 한다.
 동일 사용자 요청을 다시 보낸 경우의 멱등 처리와 ACK 재전송은 별개다.
 
+`request(target, command_id)`의 수락 기록은 `(target, epoch, transition)`으로 제어기 객체의
+수명 동안 보존한다. 같은 목표·현재 세대·현재 전환의 요청만 deadline과 현재 증거를
+`tick()`으로 재검사한 뒤 같은 전환 ID를 반환한다. 따라서 유효한 진행 중 요청과 최신 완료
+요청의 재전송은 새 시작 기록을 만들지 않는다. 이 반환값은 요청 수락의 식별자이며 READY나
+전환 완료를 보증하지 않는다.
+
+ERROR 이후, `reconcile()`로 새 세대를 얻은 이후 또는 다른 전환을 수락한 이후에 과거 ID를
+다시 사용하면 `None`과 `stale_command_id` ERROR로 명확히 거부한다. 같은 ID를 다른 목표에
+사용하면 기존 `command_id_reused` ERROR다. 실패/복구 뒤 새 사용자 의도에는 **새 명령 ID**를
+사용해야 하며, 기록을 지워 과거 ID를 새 명령처럼 수락하지 않는다. 같은 ID의 재전송 자체가
+deadline이나 증거 실패를 발견하면 해당 실패 사유로 ERROR가 된다.
+
+이 기록은 해당 제어기 객체의 메모리에만 있다. 새 제어기 객체나 새 `FakeWorld`를 가로지르는
+명령 ID 보존, 실제 crash/reboot용 영속 저장소와 인증·중복 방지 프로토콜은 구현하지 않았다.
+
 | 가짜 실패 입력 | 요구되는 결과 |
 |---|---|
 | 시작/종료/공개 확인 deadline 초과 | ERROR, 공개 허가 철회, 대상 추가 시작 없음 |
+| 실패/이전 세대·전환의 명령 ID 재사용 | `None`, `stale_command_id` ERROR, 과거 수락 ID 반환 없음 |
 | stale/replayed/wrong-run/wrong-step ACK 또는 PID 재사용 | ERROR, 다른 run 입양/종료 없음 |
 | 필수 자원 unknown·누락, worker 잔존 | ERROR, 상대 모드 시작 없음 |
 | 공개 UNKNOWN·CLOSED 증거 만료·예상 밖 OPEN | ERROR, close 요청 기록과 관측값을 구분 |
+| 공개 승인 범위 철회·교체 | ERROR, 공개 허가 철회, 바뀐 경로로 자동 공개 없음 |
 | SSD 미연결·잘못된 mount·read-only·교체/분리 | SERVER 시작 차단 또는 ERROR, SD 쓰기 대체 없음 |
 | 외부 BMO 실행·미확인 소유권/재시작 정책 | ERROR, 공개 허가 철회, 외부 BMO 정리 요청 없음 |
 | READY 이후 health/증거 상실 | ERROR, 상대 모드 자동 시작 없음 |
+| active ROBOT의 profile 증거 철회 | `robot_profile_unknown` ERROR, 상대 모드 추가 시작 없음 |
 | 반대 목표의 동시 전환 요청 | conflict를 ERROR로 기록, 두 전환 병행 없음 |
 
 "target start zero"는 시작 gate 앞에서 실패하면 대상 시작 기록이 **0건**이라는 의미다.
@@ -217,3 +255,37 @@ NEXUS 소스·테스트·문서·CI 변경만 Git에서 되돌린다. BMO checko
 
 Mock PR 검토·병합과 실제 Pi 배포 승인은 서로 다른 단계다. 이 단계에서 main 자동 병합이나
 실제 실행 명령/서비스 설치 파일을 제공하지 않는다.
+
+## 8. PR #6 → #8 병합과 브랜치 정리
+
+PR #8은 `docs/bmo-lifecycle-contract-issue4`를 base로 하는 stacked PR이다. 아래는 검토 후
+실행할 **절차 제안**이며 이번 수정에서 병합·base 변경·브랜치 삭제·강제 push는 실행하지 않는다.
+
+1. 계약 문서 PR #6을 먼저 수동 병합한다. **merge commit 방식 권장**: 기존 기준 커밋
+   `c5033555e16b2682b19e9d707975ce0e6a77b130`이 main 이력에 남아 #8 이력 재작성이 필요 없다.
+   #8의 base를 바꾸기 전에는 #6 브랜치를 삭제하지 않는다.
+2. PR #8의 base를 `main`으로 변경한다. 최신 원격 refs를 받은 뒤
+   `git diff --name-only origin/main...origin/feature/mock-mode-controller-issue7`로
+   #8의 기존 10개 파일만 남고 #6 계약 변경이 중복되지 않는지 확인한다. 전체 오프라인 테스트와
+   base 변경 후 새 GitHub CI가 성공한 다음 #8을 수동 병합한다. Draft 해제와 병합은 검토자의 결정이다.
+3. 두 PR이 모두 merged이고 #8 변경이 main에 반영됐으며 열린 다른 PR이 두 브랜치를 base로
+   사용하지 않는지 확인한 뒤 원격 feature/docs 브랜치를 정리한다. 로컬은
+   `git fetch --prune`, 깨끗한 작업 상태 확인, `main`의 `git pull --ff-only` 후
+   `git branch -d`로 정리한다. 삭제가 거부되면 원인을 확인하고 강제 삭제하지 않는다.
+
+#6을 squash merge하면 main에 새 SHA가 생겨 #8이 옛 계약 커밋을 계속 포함할 수 있다.
+이 경우 base만 바꾸고 합치지 않는다. 먼저 #8 원격 HEAD의 정확한 SHA를 보관하고 NEXUS의
+backup 브랜치를 만든 뒤, 별도 작업 복사본에서 다음처럼 **#8 커밋만** 새 main 위로 옮긴다.
+
+```bash
+git rebase --onto origin/main c5033555e16b2682b19e9d707975ce0e6a77b130 feature/mock-mode-controller-issue7
+```
+
+`git range-diff`로 `c5033555e16b2682b19e9d707975ce0e6a77b130..backup/<보관-브랜치>`와
+`origin/main..feature/mock-mode-controller-issue7`을 비교하고, 위의 10개 파일·전체 테스트를
+재확인한다. 공유 브랜치 재작성에 합의한 경우에만 **보관한 원격 HEAD SHA를 명시한**
+`--force-with-lease=refs/heads/feature/mock-mode-controller-issue7:<보관한-SHA>`로 갱신한다.
+원격이 바뀌어 거부되면 최신 변경을 확인하고 중단하며 일반 `--force`로 우회하지 않는다.
+공유 이력 재작성을 피하려면 main 기반 새 NEXUS 브랜치에 기존 기준 커밋 이후의 #8 커밋만
+cherry-pick하고 대체 PR을 만든다. 어느 방법이든 main 기준 diff와 새 CI 성공을 다시 확인한 뒤
+수동 병합하고, backup 브랜치는 복구에 필요하지 않음이 확인될 때까지 보존한다.

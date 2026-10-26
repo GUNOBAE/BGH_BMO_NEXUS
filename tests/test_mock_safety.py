@@ -8,6 +8,7 @@
 import ast
 import builtins
 from contextlib import ExitStack, contextmanager
+from dataclasses import replace
 import io
 import os
 from pathlib import Path
@@ -148,7 +149,10 @@ class MockRuntimeSafetyTests(unittest.TestCase):
             world.baseline_resources_verified = True
             world.owner_policy_verified = True
             world.robot_profile_verified = True
-            world.tunnel = TunnelEvidence(Tunnel.CLOSED, 0, True, False, True)
+            world.tunnel = TunnelEvidence(
+                Tunnel.CLOSED, 0, True, True,
+                approved_route_scope="mock-approved-demo",
+            )
             world.ssd = SSDEvidence(
                 at=0, revision=1, mounted=True, identity_verified=True,
                 filesystem_verified=True, writable=True, healthy=True,
@@ -172,8 +176,8 @@ class MockRuntimeSafetyTests(unittest.TestCase):
 
             def stop_and_ready(target, command_id):
                 self.assertIsNotNone(controller.request(target, command_id))
-                world.tunnel = TunnelEvidence(
-                    Tunnel.CLOSED, world.clock.now, True, False, True,
+                world.tunnel = replace(
+                    world.tunnel, status=Tunnel.CLOSED, at=world.clock.now,
                 )
                 send(AckKind.CLOSED)
                 send(AckKind.STOP_ACCEPTED)
@@ -193,9 +197,7 @@ class MockRuntimeSafetyTests(unittest.TestCase):
             stop_and_ready(Mode.SERVER, "fake-server")
             self.assertEqual(controller.state, State.SERVER_READY)
             self.assertTrue(controller.operator_public_approval())
-            world.tunnel = TunnelEvidence(
-                Tunnel.OPEN, world.clock.now, True, True, False,
-            )
+            world.tunnel = replace(world.tunnel, status=Tunnel.OPEN)
             send(AckKind.PUBLIC_OPENED)
             stop_and_ready(Mode.ROBOT, "fake-robot-again")
             self.assertEqual(controller.state, State.ROBOT_READY)

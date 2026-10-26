@@ -60,8 +60,9 @@ class FakeWorld:
         """새 전수 자원 확인을 테스트가 명시적으로 선언한다. 부재 추정이 아니다."""
         self.baseline_resources_verified = True
 
-    def record(self, kind: str, token: Token, identity: Identity | None = None):
-        self.commands.append(Command(kind, token, identity))
+    def record(self, kind: str, token: Token, identity: Identity | None = None,
+               *, route_scope: str | None = None):
+        self.commands.append(Command(kind, token, identity, route_scope))
 
     def start(self, mode: Mode, token: Token) -> Identity:
         if self.roots or self.external_robot:

@@ -71,6 +71,14 @@ def start_count(world, mode=None):
                for c in world.commands)
 
 
+def configure_public_route(world):
+    """실제 주소 없이 승인된 가상 공개 경로 하나만 설정한다."""
+    world.tunnel = replace(
+        world.tunnel, configured=True, empty_inventory_verified=False,
+        approved_route_scope="mock-approved-demo",
+    )
+
+
 class ControllerTests(unittest.TestCase):
     def setUp(self):
         self.world, self.controller = fixture()
@@ -253,9 +261,10 @@ class ControllerTests(unittest.TestCase):
         self.assertFalse(any(c.kind == "stop" for c in self.world.commands))
 
     def test_external_interference_at_ready_revokes_permission(self):
+        configure_public_route(self.world)
         ready(self.world, self.controller, Mode.SERVER)
         self.assertTrue(self.controller.operator_public_approval())
-        self.world.tunnel = TunnelEvidence(Tunnel.OPEN, 0, True, True)
+        self.world.tunnel = replace(self.world.tunnel, status=Tunnel.OPEN)
         self.assertTrue(ack(self.controller, AckKind.PUBLIC_OPENED))
         self.world.external_robot = True
         self.assertFalse(self.controller.tick())
@@ -283,10 +292,11 @@ class ControllerTests(unittest.TestCase):
         self.assert_failed_without_start(1)
 
     def test_open_public_is_closed_and_verified_before_stop(self):
+        configure_public_route(self.world)
         ready(self.world, self.controller, Mode.SERVER)
         c, w = self.controller, self.world
         self.assertTrue(c.operator_public_approval())
-        w.tunnel = TunnelEvidence(Tunnel.OPEN, 0, True, True)
+        w.tunnel = replace(w.tunnel, status=Tunnel.OPEN)
         self.assertTrue(ack(c, AckKind.PUBLIC_OPENED))
         self.assertIsNotNone(c.request(Mode.ROBOT, "back"))
         self.assertFalse(c.public_permission)
@@ -295,13 +305,17 @@ class ControllerTests(unittest.TestCase):
         self.assert_failed_without_start(1)
 
     def test_valid_close_allows_owned_stop_then_target(self):
+        configure_public_route(self.world)
         ready(self.world, self.controller, Mode.SERVER)
         c, w = self.controller, self.world
         self.assertTrue(c.operator_public_approval())
-        w.tunnel = TunnelEvidence(Tunnel.OPEN, 0, True, True)
+        opened = [command for command in w.commands if command.kind == "open_public"]
+        self.assertEqual(len(opened), 1)
+        self.assertEqual(opened[0].route_scope, "mock-approved-demo")
+        w.tunnel = replace(w.tunnel, status=Tunnel.OPEN)
         self.assertTrue(ack(c, AckKind.PUBLIC_OPENED))
         c.request(Mode.ROBOT, "back")
-        w.tunnel = TunnelEvidence(Tunnel.CLOSED, 0, True, True)
+        w.tunnel = replace(w.tunnel, status=Tunnel.CLOSED)
         self.assertTrue(ack(c, AckKind.CLOSED))
         self.assertEqual(sum(e.kind == "stop" for e in w.commands), 1)
         self.assertEqual(start_count(w, Mode.ROBOT), 0)
@@ -356,16 +370,18 @@ class ControllerTests(unittest.TestCase):
         self.assert_failed_without_start(0)
 
     def test_ssd_disconnect_ready_revokes_public_permission(self):
+        configure_public_route(self.world)
         ready(self.world, self.controller, Mode.SERVER)
-        self.controller.operator_public_approval()
+        self.assertTrue(self.controller.operator_public_approval())
         self.world.ssd = replace(self.world.ssd, mounted=False)
         self.assertFalse(self.controller.tick())
         self.assert_failed_without_start(1)
 
     def test_expired_health_revokes_public_and_never_restarts(self):
+        configure_public_route(self.world)
         ready(self.world, self.controller, Mode.SERVER)
-        self.controller.operator_public_approval()
-        self.world.tunnel = TunnelEvidence(Tunnel.OPEN, 0, True, True)
+        self.assertTrue(self.controller.operator_public_approval())
+        self.world.tunnel = replace(self.world.tunnel, status=Tunnel.OPEN)
         self.assertTrue(ack(self.controller, AckKind.PUBLIC_OPENED))
         self.world.clock.advance(21)
         self.world.observe_inventory()
@@ -390,6 +406,172 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(start_count(self.world), 0)
         self.assertIsNone(self.controller.request(Mode.SERVER, "one"))
         self.assert_failed_without_start(0)
+
+    def test_command_id_after_timeout_does_not_return_old_acceptance(self):
+        c, w = self.controller, self.world
+        self.assertIsNotNone(c.request(Mode.ROBOT, "same"))
+        w.clock.advance(c.policy.timeout)
+        self.assertFalse(c.tick())
+        commands = list(w.commands)
+        self.assertIsNone(c.request(Mode.ROBOT, "same"))
+        self.assertEqual(c.error, "stale_command_id")
+        self.assertEqual(w.commands, commands)
+        self.assert_failed_without_start(0)
+
+    def test_command_id_from_error_epoch_is_rejected_after_reconcile(self):
+        c, w = self.controller, self.world
+        old_transition = c.request(Mode.ROBOT, "same")
+        old_epoch = c.epoch
+        w.clock.advance(c.policy.timeout)
+        self.assertFalse(c.tick())
+        w.observe_inventory()
+        w.observe_baseline_resources()
+        w.tunnel = replace(w.tunnel, at=w.clock.now)
+        self.assertTrue(c.reconcile())
+        self.assertGreater(c.epoch, old_epoch)
+        self.assertGreater(c.transition, old_transition)
+        commands = list(w.commands)
+        self.assertIsNone(c.request(Mode.ROBOT, "same"))
+        self.assertEqual(c.error, "stale_command_id")
+        self.assert_failed_without_start(0)
+        # 실패 응답 뒤에는 다시 전수 관측해야 하며 새 ID로만 시작한다.
+        self.assertEqual(w.commands[:-1], commands)
+        w.observe_inventory()
+        w.observe_baseline_resources()
+        self.assertTrue(c.reconcile())
+        self.assertIsNotNone(c.request(Mode.ROBOT, "fresh"))
+        self.assertTrue(ack(c, AckKind.CLOSED))
+        self.assertEqual(start_count(w), 1)
+
+    def test_duplicate_request_checks_timeout_before_cached_acceptance(self):
+        c, w = self.controller, self.world
+        self.assertIsNotNone(c.request(Mode.ROBOT, "same"))
+        w.clock.advance(c.policy.timeout)
+        self.assertIsNone(c.request(Mode.ROBOT, "same"))
+        self.assertEqual(c.error, "timeout")
+        self.assert_failed_without_start(0)
+
+    def test_duplicate_request_in_same_live_transition_stays_idempotent(self):
+        c, w = self.controller, self.world
+        transition = c.request(Mode.ROBOT, "same")
+        self.assertTrue(ack(c, AckKind.CLOSED))
+        token = c.token
+        commands = list(w.commands)
+        self.assertEqual(c.request(Mode.ROBOT, "same"), transition)
+        self.assertEqual(c.token, token)
+        self.assertEqual(w.commands, commands)
+        self.assertTrue(ack(c, AckKind.START_ACCEPTED))
+        w.health[c.active] = Health(w.clock.now, True)
+        self.assertTrue(ack(c, AckKind.READY))
+        commands = list(w.commands)
+        self.assertEqual(c.request(Mode.ROBOT, "same"), transition)
+        self.assertEqual(w.commands, commands)
+        self.assertEqual(c.state, State.ROBOT_READY)
+
+    def test_cached_request_rechecks_current_generation_and_ready_evidence(self):
+        cases = (
+            ("new_controller", "controller_generation_superseded"),
+            ("health_revoked", "health_unknown_or_unhealthy"),
+            ("ssd_replaced", "ssd_lost_or_changed"),
+            ("external_robot", "external_workload"),
+        )
+        for change, expected_error in cases:
+            with self.subTest(change=change):
+                w, c = fixture()
+                configure_public_route(w)
+                ready(w, c, Mode.SERVER, "same")
+                self.assertTrue(c.operator_public_approval())
+                w.tunnel = replace(w.tunnel, status=Tunnel.OPEN)
+                self.assertTrue(ack(c, AckKind.PUBLIC_OPENED))
+                starts = start_count(w)
+                stops = sum(command.kind == "stop" for command in w.commands)
+                if change == "new_controller":
+                    ModeController(w)
+                elif change == "health_revoked":
+                    w.health[c.active] = Health(w.clock.now, False)
+                elif change == "ssd_replaced":
+                    w.ssd = replace(w.ssd, revision=w.ssd.revision + 1)
+                else:
+                    w.external_robot = True
+                self.assertIsNone(c.request(Mode.SERVER, "same"))
+                self.assertEqual(c.state, State.ERROR)
+                self.assertEqual(c.error, expected_error)
+                self.assertFalse(c.public_permission)
+                self.assertEqual(start_count(w), starts)
+                self.assertEqual(start_count(w, Mode.ROBOT), 0)
+                self.assertEqual(sum(command.kind == "stop" for command in w.commands), stops)
+                self.assertEqual(sum(command.kind == "open_public" for command in w.commands), 1)
+                self.assertEqual(w.commands[-1].kind, "close_public")
+
+    def test_completed_command_id_is_stale_after_new_transition(self):
+        c, w = self.controller, self.world
+        ready(w, c, Mode.ROBOT, "old")
+        self.assertIsNotNone(c.request(Mode.SERVER, "new"))
+        transition = c.transition
+        commands = list(w.commands)
+        self.assertIsNone(c.request(Mode.ROBOT, "old"))
+        self.assertEqual(c.error, "stale_command_id")
+        self.assertEqual(c.transition, transition)
+        self.assertEqual(w.commands[:-1], commands)
+        self.assert_failed_without_start(1)
+
+    def test_unconfigured_public_route_cannot_approve_publication(self):
+        ready(self.world, self.controller, Mode.SERVER)
+        self.assertTrue(self.world.tunnel.empty_inventory_verified)
+        self.assertFalse(self.world.tunnel.configured)
+        self.assertFalse(self.controller.operator_public_approval())
+        self.assertFalse(self.controller.public_permission)
+        self.assertEqual(self.controller.state, State.SERVER_READY)
+        self.assertEqual(self.controller.step, Step.IDLE)
+        self.assertFalse(any(c.kind == "open_public" for c in self.world.commands))
+        self.assertTrue(self.controller.tick())
+
+    def test_public_route_requires_configuration_and_nonempty_approved_scope(self):
+        for configured, scope in ((False, "mock-approved-demo"),
+                                  (True, None), (True, ""), (True, "   "),
+                                  (True, 42), (True, True)):
+            with self.subTest(configured=configured, scope=scope):
+                w, c = fixture()
+                w.tunnel = replace(
+                    w.tunnel, configured=configured, approved_route_scope=scope,
+                )
+                ready(w, c, Mode.SERVER)
+                self.assertFalse(c.operator_public_approval())
+                self.assertFalse(c.public_permission)
+                self.assertEqual(c.state, State.SERVER_READY)
+                self.assertEqual(c.step, Step.IDLE)
+                self.assertFalse(any(e.kind == "open_public" for e in w.commands))
+                self.assertTrue(c.tick())
+
+    def test_public_route_scope_change_revokes_permission_without_reopening(self):
+        for opened in (False, True):
+            changes = [{"approved_route_scope": None},
+                       {"approved_route_scope": "mock-other-demo"}]
+            if not opened:
+                changes.append({"configured": False, "empty_inventory_verified": True})
+            for change in changes:
+                with self.subTest(opened=opened, change=change):
+                    w, c = fixture()
+                    configure_public_route(w)
+                    ready(w, c, Mode.SERVER)
+                    self.assertTrue(c.operator_public_approval())
+                    if opened:
+                        w.tunnel = replace(w.tunnel, status=Tunnel.OPEN)
+                        self.assertTrue(ack(c, AckKind.PUBLIC_OPENED))
+                    w.tunnel = replace(w.tunnel, **change)
+                    self.assertFalse(c.tick())
+                    self.assertEqual(c.state, State.ERROR)
+                    self.assertEqual(c.error, "public_route_scope_lost_or_changed")
+                    self.assertFalse(c.public_permission)
+                    self.assertEqual(sum(e.kind == "open_public" for e in w.commands), 1)
+                    self.assertEqual(start_count(w), 1)
+
+    def test_ready_robot_profile_revocation_fails_closed(self):
+        ready(self.world, self.controller, Mode.ROBOT)
+        self.world.robot_profile_verified = False
+        self.assertFalse(self.controller.tick())
+        self.assertEqual(self.controller.error, "robot_profile_unknown")
+        self.assert_failed_without_start(1)
 
     def test_concurrent_conflicting_request_is_error(self):
         self.controller.request(Mode.ROBOT, "first")
