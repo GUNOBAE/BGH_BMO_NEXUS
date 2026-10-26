@@ -1,0 +1,36 @@
+name: Offline mock tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.13']
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # 부모가 없으면 git show가 기존 전체 파일을 새 파일로 검사한다.
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      # unittest만 실행한다. Pi 점검 스크립트나 실제 제어기는 실행하지 않는다.
+      - name: Run stdlib offline tests
+        run: python -B -m unittest discover -s tests -v
+      - name: Check whitespace
+        run: |
+          git diff --check
+          git show --format= --check HEAD
