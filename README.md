@@ -6,10 +6,11 @@
 
 > **Project status: OFFLINE MOCK / PRE-DEPLOYMENT.** This repository includes a pure in-memory mode-controller simulator and deterministic tests. Actual BMO/server lifecycle adapters and Pi deployment remain blocked; it is **not** a running, publicly accessible server. Existing robot software and its approved screen design are kept independent.
 
-**개인 클라우드 MVP: NOT_DEPLOYED.** [수동 실행 안내](docs/15_PRIVATE_CLOUD_MVP_KR.md)에
-SFTPGo와 SSD/BMO 사전 검사 도구를 준비했습니다. Docker 설치와 Pi 적용은 별도 승인 후,
-BMO를 수동 종료한 동안 Pi 자체 브라우저의 localhost에서 테스트 파일로 확인합니다.
-자동 모드 전환·Tailscale Serve·외부 공개는 후속 단계입니다.
+**수동 클라우드 세션: 새 세션의 실제 Pi 검증은 NOT_RUN.** 기존 MVP·Windows 접속 성공은 [Issue #11](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/11)의 소유자 보고입니다.
+[최초 설정·계정 준비](docs/15_PRIVATE_CLOUD_MVP_KR.md) 후 BMO를 기존 GUI에서 정상 종료합니다.
+시작: `sudo bash scripts/cloud-session.sh --confirm-bmo-stopped` — 검사·클라우드 health 확인 후 안내된 tailnet HTTPS 주소의 WebClient에 접속합니다.
+종료: 같은 터미널에서 **Ctrl+C** — 이 세션의 공유 중단을 확인하고 NEXUS 컨테이너를 내립니다. 데이터·계정·SSD mount는 유지합니다.
+`SESSION OFF` 확인 후 BMO를 수동 실행합니다. 오류·종료 미확인이면 BMO를 켜지 않으며, 기존 Serve/Funnel 설정이 있으면 변경 없이 시작을 거부합니다.
 
 ## 프로젝트 소개
 
