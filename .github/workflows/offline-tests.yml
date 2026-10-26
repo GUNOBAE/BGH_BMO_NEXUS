@@ -1,4 +1,4 @@
-name: Offline mock tests
+name: Offline tests
 
 on:
   push:
@@ -30,6 +30,17 @@ jobs:
       # unittest만 실행한다. Pi 점검 스크립트나 실제 제어기는 실행하지 않는다.
       - name: Run stdlib offline tests
         run: python -B -m unittest discover -s tests -v
+      - name: Check manual server scripts
+        run: |
+          bash -n scripts/server-up.sh scripts/server-down.sh
+          if command -v shellcheck >/dev/null 2>&1; then
+            shellcheck scripts/server-up.sh scripts/server-down.sh
+          fi
+      # config는 YAML 보간/스키마만 검사한다. daemon·이미지·SSD에는 접근하지 않는다.
+      - name: Validate Compose without starting containers
+        env:
+          NEXUS_SSD_MOUNT: /mnt/ssd
+        run: docker compose --env-file /dev/null -f deploy/private-cloud/compose.yaml config --quiet
       - name: Check whitespace
         run: |
           git diff --check
