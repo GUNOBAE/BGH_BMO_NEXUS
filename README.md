@@ -6,6 +6,11 @@
 
 > **Project status: OFFLINE MOCK / PRE-DEPLOYMENT.** This repository includes a pure in-memory mode-controller simulator and deterministic tests. Actual BMO/server lifecycle adapters and Pi deployment remain blocked; it is **not** a running, publicly accessible server. Existing robot software and its approved screen design are kept independent.
 
+**개인 클라우드 MVP: NOT_DEPLOYED.** [수동 실행 안내](docs/15_PRIVATE_CLOUD_MVP_KR.md)에
+SFTPGo와 SSD/BMO 사전 검사 도구를 준비했습니다. Docker 설치와 Pi 적용은 별도 승인 후,
+BMO를 수동 종료한 동안 Pi 자체 브라우저의 localhost에서 테스트 파일로 확인합니다.
+자동 모드 전환·Tailscale Serve·외부 공개는 후속 단계입니다.
+
 ## 프로젝트 소개
 
 **BMO NEXUS**는 자체 제작 BMO 로봇에 장착된 **Raspberry Pi 5 (8 GB)**와 저장장치를 재활용해, 로봇을 시연하지 않을 때 개인 클라우드·GitHub 백업·웹 실험실을 제공하는 프로젝트다.

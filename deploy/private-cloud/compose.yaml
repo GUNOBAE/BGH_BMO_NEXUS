@@ -1,0 +1,57 @@
+# 실제 시작은 SSD/BMO 검사를 수행하는 scripts/server-up.sh를 통해서만 한다.
+# 컨테이너 분리는 별도 OS가 아니며, 첫 관리자 화면도 Pi의 localhost에서만 연다.
+name: nexus-private-cloud
+
+services:
+  sftpgo:
+    image: ghcr.io/drakkan/sftpgo:v2.7.6
+    user: "1000:1000"
+    restart: "no"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      # 파일 로그 대신 Docker 로그를 사용한다. 관리자/사용자 암호는 UI에서 수동 설정한다.
+      SFTPGO_LOG_FILE_PATH: ""
+      SFTPGO_COMMON__UMASK: "077"
+      # 이번 MVP는 HTTP WebAdmin/WebClient만 사용한다. 파일 전송 포트는 열지 않는다.
+      SFTPGO_SFTPD__BINDINGS__0__PORT: "0"
+      SFTPGO_FTPD__BINDINGS__0__PORT: "0"
+      SFTPGO_WEBDAVD__BINDINGS__0__PORT: "0"
+      SFTPGO_HTTPD__BINDINGS__0__PORT: "8080"
+      SFTPGO_DATA_PROVIDER__DRIVER: sqlite
+      SFTPGO_DATA_PROVIDER__NAME: /var/lib/sftpgo/sftpgo.db
+      SFTPGO_DATA_PROVIDER__USERS_BASE_DIR: /srv/sftpgo/data
+      SFTPGO_DATA_PROVIDER__BACKUPS_PATH: /var/lib/sftpgo/backups
+      SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN: "false"
+    volumes:
+      # 원본 디렉터리가 없으면 거부한다. Docker가 SD에 대체 디렉터리를 만들면 안 된다.
+      - type: bind
+        source: ${NEXUS_SSD_MOUNT:?NEXUS_SSD_MOUNT is required}/nexus-private-cloud-test/data
+        target: /srv/sftpgo/data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${NEXUS_SSD_MOUNT:?NEXUS_SSD_MOUNT is required}/nexus-private-cloud-test/state
+        target: /var/lib/sftpgo
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=1000,gid=1000,mode=0700
+    healthcheck:
+      # v2.7.6 내장 명령: 컨테이너 내부 HTTP /healthz 응답만 확인한다.
+      test: ["CMD", "sftpgo", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    stop_grace_period: 30s
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
