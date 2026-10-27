@@ -1,0 +1,70 @@
+# 실제 시작은 SSD/BMO 검사를 거치는 scripts/web-lab-up.sh로만 한다.
+# 두 사이트는 서로의 파일·네트워크, 개인 클라우드·백업 경로에 접근하지 않는다.
+name: nexus-web-lab
+
+x-site: &site
+  # 공식 NGINX unprivileged, 다중 아키텍처 digest에 linux/arm64 포함.
+  image: ghcr.io/nginx/nginx-unprivileged:1.30.6-alpine3.24@sha256:2daef144b574804198caccc4041819fa1801ecd5df2252a39646bfa2b1ff3bea
+  user: "101:101"
+  # 기본 설정을 고치는 entrypoint 스크립트 없이 고정 NGINX 설정만 실행한다.
+  entrypoint: ["nginx"]
+  command: ["-g", "daemon off;"]
+  restart: "no"
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 32
+  mem_limit: 64m
+  cpus: 0.5
+  tmpfs:
+    # unprivileged 이미지의 PID·임시 파일만 RAM에 기록한다.
+    - /tmp:rw,noexec,nosuid,nodev,size=16m,uid=101,gid=101,mode=0700
+  healthcheck:
+    test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "2", "--output", "/dev/null", "http://127.0.0.1:8080/"]
+    interval: 5s
+    timeout: 3s
+    retries: 3
+    start_period: 5s
+  stop_grace_period: 10s
+  logging:
+    driver: local
+    options:
+      max-size: "1m"
+      max-file: "2"
+
+services:
+  site-a:
+    <<: *site
+    ports:
+      - "127.0.0.1:8090:8080"
+    volumes:
+      - type: bind
+        source: ${NEXUS_SSD_MOUNT:?NEXUS_SSD_MOUNT is required}/nexus-web-lab/site-a
+        target: /usr/share/nginx/html
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - site-a
+
+  site-b:
+    <<: *site
+    ports:
+      - "127.0.0.1:8091:8080"
+    volumes:
+      - type: bind
+        source: ${NEXUS_SSD_MOUNT:?NEXUS_SSD_MOUNT is required}/nexus-web-lab/site-b
+        target: /usr/share/nginx/html
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - site-b
+
+networks:
+  site-a:
+    internal: true
+  site-b:
+    internal: true

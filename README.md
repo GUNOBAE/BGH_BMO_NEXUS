@@ -23,6 +23,19 @@ NEXUS 저장 위치는 기존 `/mnt/ssd/nexus-git-mirrors`이며 BMO·클라우�
 미러는 Git commits/branches/tags/refs만 담으며 Issues·PR·Actions 실행 결과·Secrets·미커밋 BMO 파일·외부 LFS/서브모듈 데이터는 포함하지 않습니다.
 이 SSD 한 개는 독립 백업이 아닙니다. 세대가 쌓일수록 공간을 사용하며 자동 삭제하지 않습니다. 다음 단계는 별도 장치의 두 번째 사본입니다.
 
+**Web Lab — 실제 Pi 검증 NOT_RUN.** 기존 SSD `.env`의 UUID 설정을 읽기만 하며 Docker Engine 28 이상이 필요합니다. BMO를 기존 방법으로 정상 종료하고, NEXUS 저장소 루트에서 실행합니다.
+
+```bash
+sudo bash scripts/web-lab-up.sh --confirm-bmo-stopped
+sudo bash scripts/web-lab-status.sh
+sudo bash scripts/web-lab-down.sh
+```
+
+`WEB LAB ON`은 서로 다른 SSD `index.html`과 두 localhost HTTP 응답을 대조한 결과입니다. Pi 자체 브라우저에서 `http://127.0.0.1:8090`의 **Test site A**, `http://127.0.0.1:8091`의 **Test site B**를 확인합니다. 다른 PC의 localhost는 그 PC 자신입니다. Tailscale·공개 터널·도메인 설정은 변경하지 않습니다.
+최초 시작 때만 `/mnt/ssd/nexus-web-lab/{site-a,site-b}/index.html`에 최소 예시를 만듭니다. 이후에는 기존 내용을 덮어쓰지 않습니다. 별도 웹 개발 결과물은 Lab 종료 후 각 디렉터리에 넣고, 일반 파일 root:root `0644`·디렉터리 root:root `0755`를 유지합니다(상위 전용 폴더는 `0700`). 두 `index.html`은 비어 있지 않은 서로 다른 파일, 각각 1 MiB 이하이며 사이트당 최대 10,000개 항목만 허용합니다. 링크·다른 파일시스템·특수 파일은 거부합니다. 정적 파일만 제공하므로 서버 코드·앱 빌드는 실행하지 않습니다.
+전용 Compose 프로젝트 `nexus-web-lab`만 제어하며 기존 클라우드·두 Git 미러·BMO 파일은 보존합니다. 이미지·Docker 로그는 기존 daemon 저장소에, 사이트 파일은 SSD에 둡니다. 컨테이너는 non-root·읽기 전용 bind/rootfs·개별 내부 네트워크·자동 재시작 OFF이며 별도 OS 보안 경계는 아닙니다.
+`WEB LAB OFF`는 정지된 컨테이너까지 0개이고 두 포트의 bind 성공·TCP 연결 거부가 확인돼야 표시합니다. 오류·중단 시 `web-lab-down.sh`로 종료를 확인합니다. 롤백은 이 명령으로 Lab만 내리는 것이며 사이트 파일·SSD mount는 남습니다. **Web Lab뿐 아니라 다른 서버 작업도 모두 종료 확인한 뒤** BMO를 수동 실행합니다. 현장 수용은 두 페이지 확인 → down → 두 포트 닫힘·Lab 컨테이너 0개와 기존 8080·미러·BMO 보존 확인이며, 이번 PR의 오프라인 검증과 구분합니다.
+
 ## 프로젝트 소개
 
 **BMO NEXUS**는 자체 제작 BMO 로봇에 장착된 **Raspberry Pi 5 (8 GB)**와 저장장치를 재활용해, 로봇을 시연하지 않을 때 개인 클라우드·GitHub 백업·웹 실험실을 제공하는 프로젝트다.
