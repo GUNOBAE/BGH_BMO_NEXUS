@@ -2,6 +2,7 @@
 
 import argparse
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import errno
 import hashlib
@@ -29,6 +30,7 @@ OWNER_GID = 0
 STORE_MARKER = ".nexus-mirror-store"
 STORE_ID = b"NEXUS public Git mirror store v1\n"
 SAMPLES = ("README.md", "AGENTS.md")
+REPO_NAMES = ("BGH_BMO_NEXUS", "BGH_BMO")
 GENERATION = re.compile(r"gen-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}")
 OID = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -36,6 +38,7 @@ MAX_FILE = 1024 * 1024
 REASONS = {
     "root_required": "승인 후 sudo로 실행하세요",
     "confirmation_required": "BMO 정상 종료 후 --confirm-bmo-stopped를 지정하세요",
+    "repo_rejected": "허용된 PUBLIC 저장소 이름만 선택할 수 있습니다",
     "settings_rejected": "/mnt/ssd와 BMO_SSD 기존 설정만 사용할 수 있습니다",
     "ssd_rejected": "기존 SSD mount·identity·ext4/rw·NVMe live·공간 검사를 확인하세요",
     "ssd_changed": "검증한 SSD identity 또는 고정 경로가 바뀌었습니다",
@@ -61,6 +64,26 @@ REASONS = {
 
 class MirrorError(RuntimeError):
     """민감한 URL·환경·Git 원문 대신 고정 이유만 전달한다."""
+
+
+@dataclass(frozen=True)
+class Repository:
+    source: str
+    base_name: str
+    store_id: bytes
+    samples: tuple[str, str]
+
+
+def repository(repo="BGH_BMO_NEXUS"):
+    # URL/경로 입력을 받지 않는다. 기존 NEXUS 경로·마커·복원 파일은 그대로 유지한다.
+    if type(repo) is str:
+        if repo == "BGH_BMO_NEXUS":
+            return Repository(SOURCE, BASE_NAME, STORE_ID, SAMPLES)
+        if repo == "BGH_BMO":
+            return Repository("https://github.com/GUNOBAE/BGH_BMO.git", "bmo-git-mirrors",
+                              b"NEXUS BGH_BMO public Git mirror store v1\n",
+                              ("README.md", "README_KR.md"))
+    raise MirrorError("repo_rejected")
 
 
 def safe_reason(error):
@@ -206,7 +229,8 @@ def gate(settings, signature, *, writing=False):
 
 
 @contextmanager
-def store(settings, signature, *, create=False):
+def store(settings, signature, *, create=False, repo="BGH_BMO_NEXUS"):
+    selected = repository(repo)
     # mount fd를 고정한 뒤 상대경로만 사용하므로 경로 교체로 SD에 대체 생성하지 않는다.
     with cloud.directory_fd(settings.mount) as mount_fd:
         verify_fd(mount_fd, signature, private=False)
@@ -214,24 +238,24 @@ def store(settings, signature, *, create=False):
         created = False
         if create:
             try:
-                os.mkdir(BASE_NAME, mode=0o700, dir_fd=mount_fd)
+                os.mkdir(selected.base_name, mode=0o700, dir_fd=mount_fd)
                 created = True
             except FileExistsError:
                 pass
         try:
-            base_fd = open_directory(mount_fd, BASE_NAME, signature)
+            base_fd = open_directory(mount_fd, selected.base_name, signature)
         except MirrorError:
-            if not create and not os.path.lexists(settings.mount / BASE_NAME):
+            if not create and not os.path.lexists(settings.mount / selected.base_name):
                 yield None
                 return
             raise
         try:
             if created:
-                write_file(base_fd, STORE_MARKER, STORE_ID, signature)
+                write_file(base_fd, STORE_MARKER, selected.store_id, signature)
                 os.fsync(base_fd)
             else:
                 try:
-                    if read_file(base_fd, STORE_MARKER, signature) != STORE_ID:
+                    if read_file(base_fd, STORE_MARKER, signature) != selected.store_id:
                         raise MirrorError("path_rejected")
                 except OSError as error:
                     code = "space_or_io_error" if error.errno in (errno.EIO, errno.ENOSPC, errno.EROFS, errno.ESTALE) else "path_rejected"
@@ -302,14 +326,15 @@ def sample_blob(fd, name, head, runner):
         raise MirrorError("restore_invalid") from None
 
 
-def sync(settings, *, confirmed, runner=run_git):
+def sync(settings, *, confirmed, runner=run_git, repo="BGH_BMO_NEXUS"):
+    selected = repository(repo)
     if not confirmed:
         raise MirrorError("confirmation_required")
     if settings.mount != FIXED_MOUNT or settings.label != "BMO_SSD":
         raise MirrorError("settings_rejected")
     signature = cloud.check_storage(settings)
     gate(settings, signature, writing=True)
-    with store(settings, signature, create=True) as base_fd:
+    with store(settings, signature, create=True, repo=repo) as base_fd:
         name = "gen-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex
         gate(settings, signature, writing=True)
         generation_fd = new_directory(base_fd, name, signature)
@@ -318,14 +343,14 @@ def sync(settings, *, confirmed, runner=run_git):
             os.close(home)
             gate(settings, signature, writing=True)
             # --mirror의 강제 refspec으로 기존 사본을 갱신하지 않고 매번 새 사본을 만든다.
-            runner(["clone", "--mirror", "--no-hardlinks", "--no-local", "--template=", "--", SOURCE, "mirror.git"],
+            runner(["clone", "--mirror", "--no-hardlinks", "--no-local", "--template=", "--", selected.source, "mirror.git"],
                    cwd_fd=generation_fd, timeout=300)
             gate(settings, signature, writing=True)
             report = inspect_mirror(generation_fd, signature, runner)
             restore_fd = new_directory(generation_fd, "restore-test", signature)
             try:
                 hashes = {}
-                for sample in SAMPLES:
+                for sample in selected.samples:
                     gate(settings, signature, writing=True)
                     blob = sample_blob(generation_fd, sample, report["head"], runner)
                     write_file(restore_fd, sample, blob, signature)
@@ -341,7 +366,7 @@ def sync(settings, *, confirmed, runner=run_git):
                 report["config_sha256"] = hashlib.sha256(read_file(mirror_fd, "config", signature)).hexdigest()
             finally:
                 os.close(mirror_fd)
-            report.update({"generation": name, "restored": len(SAMPLES), "files": hashes,
+            report.update({"generation": name, "restored": len(selected.samples), "files": hashes,
                            "completed_ns": time.time_ns()})
             gate(settings, signature, writing=True)
             write_file(generation_fd, "complete.json", json.dumps(report, sort_keys=True).encode() + b"\n", signature)
@@ -353,12 +378,13 @@ def sync(settings, *, confirmed, runner=run_git):
             os.close(generation_fd)
 
 
-def status(settings, *, runner=run_git):
+def status(settings, *, runner=run_git, repo="BGH_BMO_NEXUS"):
+    selected = repository(repo)
     if settings.mount != FIXED_MOUNT or settings.label != "BMO_SSD":
         raise MirrorError("settings_rejected")
     signature = cloud.check_storage(settings)
     result = {"complete": 0, "partial": 0, "latest": None}
-    with store(settings, signature) as base_fd:
+    with store(settings, signature, repo=repo) as base_fd:
         if base_fd is None:
             return result
         for name in sorted(os.listdir(base_fd)):
@@ -387,14 +413,14 @@ def status(settings, *, runner=run_git):
                         raise ValueError
                     restore_fd = open_directory(generation_fd, "restore-test", signature)
                     try:
-                        for sample in SAMPLES:
+                        for sample in selected.samples:
                             data = read_file(restore_fd, sample, signature)
                             if (hashlib.sha256(data).hexdigest() != saved["files"][sample]
                                     or data != sample_blob(generation_fd, sample, saved["head"], runner)):
                                 raise ValueError
                     finally:
                         os.close(restore_fd)
-                    if saved["restored"] != len(SAMPLES):
+                    if saved["restored"] != len(selected.samples):
                         raise ValueError
                 except (ValueError, TypeError, KeyError):
                     raise MirrorError("manifest_invalid") from None
@@ -413,6 +439,8 @@ def main(argv=None):
             self.exit(2, "MIRROR ERROR: arguments_invalid: 사용법을 확인하세요\n")
 
     parser = Parser(description="고정 PUBLIC GitHub 프로젝트의 SSD 미러·새 경로 복원 검증")
+    parser.add_argument("--repo", choices=REPO_NAMES, default="BGH_BMO_NEXUS",
+                        help="허용된 PUBLIC 대상 선택 (기본값: BGH_BMO_NEXUS)")
     parser.add_argument("--status", action="store_true", help="저장된 세대를 읽기 전용으로 재검증")
     parser.add_argument("--confirm-bmo-stopped", action="store_true")
     parser.add_argument("--config", type=Path, default=cloud.COMPOSE.parent / ".env")
@@ -426,11 +454,11 @@ def main(argv=None):
         with cloud.operation_lock():
             settings = cloud.load_settings(args.config)
             if args.status:
-                report = status(settings)
+                report = status(settings, repo=args.repo)
                 print(f"MIRROR STATUS: complete={report['complete']} partial={report['partial']}")
                 current = report["latest"]
             else:
-                current = sync(settings, confirmed=True)
+                current = sync(settings, confirmed=True, repo=args.repo)
                 print("MIRROR OK: 새 세대 복제·객체·복원 검증 완료. 이전 세대는 그대로 유지합니다")
             if current:
                 print(f"HEAD={current['head']} refs={current['refs']} "
