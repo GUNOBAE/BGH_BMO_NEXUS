@@ -12,11 +12,13 @@
 종료: 같은 터미널에서 **Ctrl+C** — 이 세션의 공유 중단을 확인하고 NEXUS 컨테이너를 내립니다. 데이터·계정·SSD mount는 유지합니다.
 `SESSION OFF` 확인 후 BMO를 수동 실행합니다. 오류·종료 미확인이면 BMO를 켜지 않으며, 기존 Serve/Funnel 설정이 있으면 변경 없이 시작을 거부합니다.
 
-**GitHub 미러: 새 도구의 실제 Pi/SSD 실행은 NOT_RUN.** 기존 [SSD 설정](docs/15_PRIVATE_CLOUD_MVP_KR.md)을 재사용하며 `/mnt/ssd`의 mount·UUID·ext4/rw·NVMe live·여유 공간 검사를 유지합니다.
-BMO를 정상 종료한 뒤 `sudo bash scripts/github-mirror.sh --confirm-bmo-stopped` — PUBLIC `GUNOBAE/BGH_BMO_NEXUS` 하나만 백업합니다.
-저장 위치는 새 `/mnt/ssd/nexus-git-mirrors`이며 기존 BMO·클라우드 데이터와 SSD mount를 변경하지 않습니다.
+**GitHub 미러:** 기존 NEXUS의 Pi 검증은 [Issue #15](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/15)의 소유자 보고로 확인했으며, 새 BMO 미러의 Pi 검증은 NOT_RUN입니다. 기존 [SSD 설정](docs/15_PRIVATE_CLOUD_MVP_KR.md)과 mount·UUID·ext4/rw·NVMe live·여유 공간 검사를 유지합니다.
+BMO를 정상 종료한 뒤 `sudo bash scripts/github-mirror.sh --confirm-bmo-stopped` — 기본값은 PUBLIC `GUNOBAE/BGH_BMO_NEXUS`입니다.
+NEXUS 저장 위치는 기존 `/mnt/ssd/nexus-git-mirrors`이며 BMO·클라우드 데이터와 SSD mount를 변경하지 않습니다.
+로봇 원격 백업: `sudo bash scripts/github-mirror.sh --repo BGH_BMO --confirm-bmo-stopped` — PUBLIC `GUNOBAE/BGH_BMO`만 별도 `/mnt/ssd/bmo-git-mirrors`에 백업합니다. 로컬 BMO 프로그램은 읽거나 수정하지 않습니다.
+로봇 미러 상태: `sudo bash scripts/github-mirror.sh --repo BGH_BMO --status` — 기존 NEXUS 사본·마커·세대는 그대로 둡니다. 임의 URL이나 다른 저장소 이름은 받지 않습니다.
 업데이트도 같은 명령입니다. 매번 새 세대에 복제해 이전 사본을 덮어쓰거나 prune하지 않고, 실패한 세대 폴더도 보존합니다.
-정상 출력은 `MIRROR OK`입니다. refs·객체 검사와 별도 경로의 `README.md`·`AGENTS.md` 복원 대조가 모두 통과해야 표시합니다.
+정상 출력은 `MIRROR OK`입니다. refs·객체 검사와 별도 경로의 두 파일 복원 대조가 모두 통과해야 표시합니다(NEXUS: `README.md`·`AGENTS.md`, BMO: `README.md`·`README_KR.md`).
 상태 확인: `sudo bash scripts/github-mirror.sh --status` — 완료/부분 사본과 검증 결과를 확인합니다.
 미러는 Git commits/branches/tags/refs만 담으며 Issues·PR·Actions 실행 결과·Secrets·미커밋 BMO 파일·외부 LFS/서브모듈 데이터는 포함하지 않습니다.
 이 SSD 한 개는 독립 백업이 아닙니다. 세대가 쌓일수록 공간을 사용하며 자동 삭제하지 않습니다. 다음 단계는 별도 장치의 두 번째 사본입니다.
