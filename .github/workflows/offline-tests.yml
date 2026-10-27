@@ -32,11 +32,11 @@ jobs:
         run: python -B -m unittest discover -s tests -v
       - name: Check manual server scripts
         run: |
-          for script in scripts/server-up.sh scripts/server-down.sh scripts/cloud-session.sh; do
+          for script in scripts/server-up.sh scripts/server-down.sh scripts/cloud-session.sh scripts/github-mirror.sh; do
             bash -n "$script"
           done
           if command -v shellcheck >/dev/null 2>&1; then
-            shellcheck scripts/server-up.sh scripts/server-down.sh scripts/cloud-session.sh
+            shellcheck scripts/server-up.sh scripts/server-down.sh scripts/cloud-session.sh scripts/github-mirror.sh
           fi
       # config는 YAML 보간/스키마만 검사한다. daemon·이미지·SSD에는 접근하지 않는다.
       - name: Validate Compose without starting containers

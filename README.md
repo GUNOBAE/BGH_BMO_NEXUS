@@ -12,6 +12,15 @@
 종료: 같은 터미널에서 **Ctrl+C** — 이 세션의 공유 중단을 확인하고 NEXUS 컨테이너를 내립니다. 데이터·계정·SSD mount는 유지합니다.
 `SESSION OFF` 확인 후 BMO를 수동 실행합니다. 오류·종료 미확인이면 BMO를 켜지 않으며, 기존 Serve/Funnel 설정이 있으면 변경 없이 시작을 거부합니다.
 
+**GitHub 미러: 새 도구의 실제 Pi/SSD 실행은 NOT_RUN.** 기존 [SSD 설정](docs/15_PRIVATE_CLOUD_MVP_KR.md)을 재사용하며 `/mnt/ssd`의 mount·UUID·ext4/rw·NVMe live·여유 공간 검사를 유지합니다.
+BMO를 정상 종료한 뒤 `sudo bash scripts/github-mirror.sh --confirm-bmo-stopped` — PUBLIC `GUNOBAE/BGH_BMO_NEXUS` 하나만 백업합니다.
+저장 위치는 새 `/mnt/ssd/nexus-git-mirrors`이며 기존 BMO·클라우드 데이터와 SSD mount를 변경하지 않습니다.
+업데이트도 같은 명령입니다. 매번 새 세대에 복제해 이전 사본을 덮어쓰거나 prune하지 않고, 실패한 세대 폴더도 보존합니다.
+정상 출력은 `MIRROR OK`입니다. refs·객체 검사와 별도 경로의 `README.md`·`AGENTS.md` 복원 대조가 모두 통과해야 표시합니다.
+상태 확인: `sudo bash scripts/github-mirror.sh --status` — 완료/부분 사본과 검증 결과를 확인합니다.
+미러는 Git commits/branches/tags/refs만 담으며 Issues·PR·Actions 실행 결과·Secrets·미커밋 BMO 파일·외부 LFS/서브모듈 데이터는 포함하지 않습니다.
+이 SSD 한 개는 독립 백업이 아닙니다. 세대가 쌓일수록 공간을 사용하며 자동 삭제하지 않습니다. 다음 단계는 별도 장치의 두 번째 사본입니다.
+
 ## 프로젝트 소개
 
 **BMO NEXUS**는 자체 제작 BMO 로봇에 장착된 **Raspberry Pi 5 (8 GB)**와 저장장치를 재활용해, 로봇을 시연하지 않을 때 개인 클라우드·GitHub 백업·웹 실험실을 제공하는 프로젝트다.
