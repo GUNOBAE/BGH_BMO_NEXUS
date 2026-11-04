@@ -1,0 +1,18 @@
+[Unit]
+Description=Bounded NEXUS SSD recovery and ntfy delivery
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ssd-guard tick
+User=root
+Group=root
+UMask=0077
+TimeoutStartSec=90
+NoNewPrivileges=yes
+# Must see host /proc and the real mount table to reject BMO activity and wrong storage.
+# Do not use PrivateDevices/ProtectHome/ProtectSystem here: they change those observations.
+RestrictSUIDSGID=yes
+LockPersonality=yes
+StandardOutput=journal
+StandardError=journal
