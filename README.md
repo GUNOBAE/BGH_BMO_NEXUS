@@ -4,7 +4,15 @@
 
 [English](README_EN.md) | **한국어** | [원본 BMO 로봇 프로젝트](https://github.com/GUNOBAE/BGH_BMO)
 
-> **Project status: OFFLINE MOCK / PRE-DEPLOYMENT.** This repository includes a pure in-memory mode-controller simulator and deterministic tests. Actual BMO/server lifecycle adapters and Pi deployment remain blocked; it is **not** a running, publicly accessible server. Existing robot software and its approved screen design are kept independent.
+> **Project status: manual private-server tools available; live mode controller pending.** The owner has reported private-cloud/Tailscale and both Git mirrors working on the Pi. The mode-controller remains an offline simulator. New SSD recovery and status tools are offline-tested; their Pi deployment and phone delivery are **NOT_RUN**. No public server availability is claimed.
+
+**2026-11-05 SSD 복구 추가:** 소유자가 추가 5V 연결 후 약 일주일간 dead 미관찰을 보고했습니다. 원인 해결 확정과 구분합니다. 새 guard는 서버 세션에서 명시적으로 arm한 뒤 SSD dead/소실/0B를 감지해 **최대 5회 정상 재부팅 요청**, 계속 실패하면 정지하고 **ntfy 영어 알림**을 전송합니다. 추가 5회는 Tailscale SSH에서 직접 승인합니다. 상태와 알림 대기열은 SD에 보존하며 설치 기본값은 DISARMED입니다.
+
+- [설치·휴대폰 연결·재시도 승인·롤백](docs/16_SSD_RECOVERY_KR.md)
+- [원래 서버 구상·현재 상태·우선순위·Pi 담당 인계](docs/17_NEXT_STEPS_2026_11_KR.md)
+- 읽기 전용 통합 상태: `sudo python3 -B scripts/nexus_status.py`
+
+SSD 복구 후 서버 앱 자동 재개와 실제 ROBOT/SERVER 모드 소유권 연결은 후속 작업입니다. 기존 BMO 자동 실행 설정을 변경하지 않습니다.
 
 **수동 클라우드 세션: 새 세션의 실제 Pi 검증은 NOT_RUN.** 기존 MVP·Windows 접속 성공은 [Issue #11](https://github.com/GUNOBAE/BGH_BMO_NEXUS/issues/11)의 소유자 보고입니다.
 [최초 설정·계정 준비](docs/15_PRIVATE_CLOUD_MVP_KR.md) 후 BMO를 기존 GUI에서 정상 종료합니다.
@@ -100,7 +108,8 @@ flowchart TD
 | Pi 후속 점검 스크립트/모의 테스트 | ✅ PR #2 병합·31개 모의 테스트 Pi에서 통과 |
 | 오프라인 Mock Mode Controller | ✅ [Phase 3 가상 상태기계·실패 경로 테스트](docs/14_MODE_CONTROLLER_MOCK_KR.md). 가짜 시계·자원·SSD·공개 관측만 사용; 실제 Pi 동작 증거가 아님 |
 | BMO 원본 백업 및 복원 테스트 | ⬜ 미검증 |
-| 서버 프로그램 배포 | ⬜ 미실시 |
+| 서버 프로그램 배포 | 개인 클라우드·두 Git 미러 실기 성공은 소유자 보고. Web Lab 최신 실기 검증 미확인 |
+| SSD 5회 복구·ntfy·상태 조회 | 코드/오프라인 시험 완료, 이번 Pi 설치·실제 재부팅·휴대폰 수신 NOT_RUN |
 | 실제 모드 전환 구현·현장 시험 | ⬜ 미실시·NOT_RUN. Mock PASS와 별도 단계 |
 | 인터넷 공개 및 외부 보안 점검 | ⬜ 미실시 |
 
@@ -156,4 +165,4 @@ bash scripts/inspect_pi.sh
 - BMO 로봇의 CAD/PCB/얼굴/음성은 원본 저장소에서 계속 관리한다.
 - 이 저장소에는 로봇 원본 자산, API 비밀키, 개인 파일, 백업 아카이브를 저장하지 않는다.
 - 기초 로봇 프로젝트: [GUNOBAE/BGH_BMO](https://github.com/GUNOBAE/BGH_BMO)
-- 현재 **오프라인 Mock 및 배포 준비 단계**다. 실제 BMO/서버 전환·설치·인터넷 공개 완료를 주장하지 않는다.
+- 수동 사설 서버 도구와 오프라인 모드 제어기를 제공한다. 실제 자동 모드 전환·새 SSD guard 배포·인터넷 공개 완료를 주장하지 않는다.

@@ -1,5 +1,7 @@
 # BMO NEXUS 사실 / 가정 / 미해결 사항
 
+> **2026-11-05 추가:** 아래는 10월 25일의 역사적 실측이다. 이후 개인 클라우드/Tailscale 및 NEXUS·BMO Git 미러 성공이 소유자에 의해 보고됐고, 추가 5V 후 약 일주일간 SSD dead 미관찰이 보고됐다. 새 SSD guard와 통합 status는 코드·오프라인 시험까지 완료했으며 이번 Pi 설치·알림 수신·실제 재부팅은 NOT_RUN이다. 최신 작업 순서는 [11월 재개 계획](17_NEXT_STEPS_2026_11_KR.md)을 따른다. 실제 mode controller가 완성됐다는 뜻은 아니다.
+
 기준: 2026-10-25. 본 문서는 사용자가 Raspberry Pi에서 직접 실행한 `inspect_pi.sh`의 **민감 정보를 생략한 결과**를 반영한다. 자세한 실측 표는 [09_PI_BASELINE_KR.md](09_PI_BASELINE_KR.md).
 
 ## 실측 확인 (2026-10-25)

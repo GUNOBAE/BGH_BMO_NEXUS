@@ -1,0 +1,11 @@
+[Unit]
+Description=Check NEXUS SSD after boot and every 30 seconds
+
+[Timer]
+OnBootSec=180s
+OnUnitInactiveSec=30s
+AccuracySec=1s
+Unit=nexus-ssd-guard.service
+
+[Install]
+WantedBy=timers.target

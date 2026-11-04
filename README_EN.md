@@ -12,10 +12,10 @@
 | SERVER | Stopped | Active | Only approved demos |
 | MAINTENANCE | Stopped | Stopped | Off |
 
-Hardware: Raspberry Pi 5 with 8 GB RAM, 1 TB NVMe SSD, and 512 GB microSD. The actual system partition, mount points, existing autostart services, and current health are **not yet audited**. No repartitioning or reinstall is proposed before that audit.
+Hardware: Raspberry Pi 5 with 8 GB RAM, 1 TB NVMe SSD, and 512 GB microSD. The baseline confirmed SD root; later owner reports confirmed the SSD mount and private-server use. A week without observed SSD dead events after adding 5V was reported on 2026-11-05; this is not proof of a resolved hardware cause.
 
 Planned subsystems: lifecycle controller, private file access (SFTPGo candidate), Git mirror + restic backup, a tightly scoped public web lab, system monitoring, and separate Tailscale/private versus Cloudflare Tunnel/public access.
 
 **Security note:** switching applications on a shared OS is not a strong isolation boundary. Public-facing services should be minimally privileged, strictly segmented, and not given access to BMO credentials or private data.
 
-Current status: **design only; not deployed or field-verified**. Web frontend and portfolio design are a separate workstream. Read [the implementation plan](docs/01_IMPLEMENTATION_PLAN_KR.md) and [architecture/mode policy](docs/03_MODE_CONTROLLER_KR.md) before changing the Pi.
+Current status: private-cloud/Tailscale and Git mirrors have owner-reported Pi success; the live mode controller remains pending. New SSD recovery code provides a durable five-request reboot budget, ntfy alerts, and explicit approval for another batch. New installs are disarmed. **Recovery deployment, real reboot testing, and phone delivery are NOT_RUN.** See the [operator guide](docs/16_SSD_RECOVERY_KR.md) and [current roadmap](docs/17_NEXT_STEPS_2026_11_KR.md). Web frontend and portfolio design remain a separate workstream.

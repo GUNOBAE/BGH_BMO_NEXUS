@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/bin/python3 -E -s -B /opt/bmo-nexus-ssd-guard/ssd_guard.py "$@"
